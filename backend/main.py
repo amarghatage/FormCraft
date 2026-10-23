@@ -9,6 +9,8 @@ import os
 import re
 import secrets
 import sqlite3
+import urllib.error
+import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -98,6 +100,11 @@ class ResponseCreate(BaseModel):
     answers: dict[str, Any]
 
 
+class AIGenerateRequest(BaseModel):
+    prompt: str = Field(min_length=8, max_length=2000)
+    question_count: int = Field(default=6, ge=2, le=15)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -172,6 +179,85 @@ def store_response(form_id: str, payload: ResponseCreate) -> dict[str, str]:
     return {"id": response_id, "submitted_at": submitted}
 
 
+def generate_form_draft(prompt: str, question_count: int) -> dict[str, Any]:
+    model = os.getenv("OLLAMA_MODEL", "llama3:latest")
+    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")
+    schema_instructions = """Return only a valid JSON object with this shape:
+{"title":"Form title","description":"Short form description","questions":[{"title":"Question text","type":"short_text|long_text|multiple_choice|checkboxes|dropdown","required":true,"options":[]}]}
+Use options with 2-6 strings for multiple_choice, checkboxes, and dropdown. Use an empty options array for short_text and long_text. Include no markdown or extra prose."""
+    body = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You design clear, concise online forms. Follow the requested JSON format exactly."},
+            {"role": "user", "content": f"Create a form with about {question_count} questions. User's brief: {prompt}\n\n{schema_instructions}"},
+        ],
+        "temperature": 0.5,
+        "max_tokens": 1800,
+    }).encode()
+    request = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers={"Authorization": "Bearer ollama", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            completion = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:500]
+        if error.code == 404:
+            raise HTTPException(502, f"Ollama could not find model '{model}'. Run `ollama pull {model}` and retry.")
+        raise HTTPException(502, f"Ollama request failed ({error.code}): {detail}")
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise HTTPException(502, f"Could not reach Ollama at {base_url}. Make sure Ollama is running: {error}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(502, "Ollama returned an invalid response")
+
+    try:
+        content = completion["choices"][0]["message"]["content"]
+        if isinstance(content, list):
+            content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+        text = str(content).strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end < start:
+            raise ValueError("JSON object not found")
+        draft = json.loads(text[start:end + 1])
+        if not isinstance(draft, dict) or not isinstance(draft.get("questions"), list):
+            raise ValueError("Invalid form structure")
+        valid_types = {"short_text", "long_text", "multiple_choice", "checkboxes", "dropdown"}
+        cleaned = []
+        for raw_question in draft["questions"][:15]:
+            if not isinstance(raw_question, dict):
+                continue
+            question_type = raw_question.get("type")
+            if question_type not in valid_types:
+                question_type = "short_text"
+            raw_options = raw_question.get("options", [])
+            if not isinstance(raw_options, list):
+                raw_options = []
+            options = [str(option)[:200] for option in raw_options[:8]]
+            if question_type in {"multiple_choice", "checkboxes", "dropdown"} and len(options) < 2:
+                question_type = "short_text"
+            question = Question(
+                title=(str(raw_question.get("title") or "Question")[:300]),
+                type=question_type,
+                required=bool(raw_question.get("required", False)),
+                options=options if question_type in {"multiple_choice", "checkboxes", "dropdown"} else [],
+            )
+            cleaned.append(question.model_dump())
+        if not cleaned:
+            raise ValueError("No questions returned")
+        return {
+            "title": (str(draft.get("title") or "AI generated form")[:200]),
+            "description": str(draft.get("description", ""))[:2000],
+            "questions": cleaned,
+        }
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise HTTPException(502, f"Could not read a form draft from the model response: {error}")
+
+
 @app.on_event("startup")
 def startup() -> None:
     initialize()
@@ -180,6 +266,11 @@ def startup() -> None:
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/ai/generate-form")
+def ai_generate_form(payload: AIGenerateRequest, _user: dict[str, str] = Depends(current_user)) -> dict[str, Any]:
+    return generate_form_draft(payload.prompt, payload.question_count)
 
 
 @app.post("/api/auth/register", status_code=201)

@@ -15,23 +15,38 @@ A starter form builder built with **React, Tailwind CSS, and Python**. Create an
 
 ## Run locally
 
+### Start Ollama
+
+Keep the Ollama app running. Confirm your local model is available:
+
+```cmd
+ollama list
+```
+
+FormCraft uses `llama3:latest` by default. To use another model, download it with `ollama pull <model>` and set `OLLAMA_MODEL` in the backend terminal before starting the API.
+
 ### Start the API
 
-```powershell
+Open Command Prompt in the project folder and run:
+
+```cmd
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn main:app --reload
+.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+set OLLAMA_MODEL=llama3:latest
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 The API runs at `http://localhost:8000`; interactive API docs are at `http://localhost:8000/docs`. Port `8017` also works if port `8000` is occupied.
 
+AI form generation runs through the local Ollama server at `http://127.0.0.1:11434/v1`; no Hugging Face token or inference credits are needed. Leave this terminal open while using FormCraft.
+
 ### Start the frontend
 
-In a second terminal:
+Open a second Command Prompt in the project folder and run:
 
-```powershell
+```cmd
 cd frontend
 npm install
 npm run dev
@@ -44,6 +59,7 @@ Open the Vite URL shown in the terminal (normally `http://localhost:5173`). The 
 - Form dashboard with response counts and search
 - Email and password registration and login
 - Per-account form ownership: users can only list, edit, delete, and view responses for their own forms
+- AI form drafts generated from a text brief with a local Ollama model
 - Create, edit, and delete forms
 - Short answer, paragraph, multiple choice, checkbox, and dropdown questions
 - Required question validation
