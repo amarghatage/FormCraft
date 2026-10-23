@@ -57,9 +57,11 @@ Open the Vite URL shown in the terminal (normally `http://localhost:5173`). The 
 ## Features
 
 - Form dashboard with response counts and search
+- Grid and list views for browsing forms
 - Email and password registration and login
 - Per-account form ownership: users can only list, edit, delete, and view responses for their own forms
 - AI form drafts generated from a text brief with a local Ollama model
+- Five selectable form themes (Violet, Ocean, Forest, Sunset, and Slate) that persist and apply to the respondent page
 - Create, edit, and delete forms
 - Short answer, paragraph, multiple choice, checkbox, and dropdown questions
 - Required question validation

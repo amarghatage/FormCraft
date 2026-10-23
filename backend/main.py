@@ -14,7 +14,7 @@ import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
@@ -48,7 +48,7 @@ def initialize() -> None:
         CREATE TABLE IF NOT EXISTS forms (
           id TEXT PRIMARY KEY, owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
           title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
-          questions TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL
+          questions TEXT NOT NULL DEFAULT '[]', theme TEXT NOT NULL DEFAULT 'violet', created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS responses (
           id TEXT PRIMARY KEY, form_id TEXT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
@@ -58,6 +58,8 @@ def initialize() -> None:
         columns = {row["name"] for row in db.execute("PRAGMA table_info(forms)")}
         if "owner_id" not in columns:
             db.execute("ALTER TABLE forms ADD COLUMN owner_id TEXT REFERENCES users(id)")
+        if "theme" not in columns:
+            db.execute("ALTER TABLE forms ADD COLUMN theme TEXT NOT NULL DEFAULT 'violet'")
 
 
 app = FastAPI(title="FormBuilder API", version="1.1.0")
@@ -94,6 +96,7 @@ class FormCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     questions: list[Question] = Field(default_factory=list)
+    theme: Literal["violet", "ocean", "forest", "sunset", "slate"] = "violet"
 
 
 class ResponseCreate(BaseModel):
@@ -111,7 +114,7 @@ def now() -> str:
 
 def form_data(row: sqlite3.Row) -> dict[str, Any]:
     return {"id": row["id"], "title": row["title"], "description": row["description"],
-            "questions": json.loads(row["questions"]), "created_at": row["created_at"]}
+            "questions": json.loads(row["questions"]), "theme": row["theme"], "created_at": row["created_at"]}
 
 
 def encode_part(value: bytes) -> str:
@@ -329,9 +332,9 @@ def list_forms(user: dict[str, str] = Depends(current_user)) -> list[dict[str, A
 def create_form(payload: FormCreate, user: dict[str, str] = Depends(current_user)) -> dict[str, Any]:
     form_id = str(uuid4())
     with connection() as db:
-        db.execute("INSERT INTO forms(id,owner_id,title,description,questions,created_at) VALUES(?,?,?,?,?,?)",
+        db.execute("INSERT INTO forms(id,owner_id,title,description,questions,theme,created_at) VALUES(?,?,?,?,?,?,?)",
                    (form_id, user["id"], payload.title, payload.description,
-                    json.dumps([q.model_dump() for q in payload.questions]), now()))
+                    json.dumps([q.model_dump() for q in payload.questions]), payload.theme, now()))
         row = db.execute("SELECT * FROM forms WHERE id=?", (form_id,)).fetchone()
     return form_data(row)
 
@@ -347,9 +350,9 @@ def get_form(form_id: str, user: dict[str, str] = Depends(current_user)) -> dict
 def update_form(form_id: str, payload: FormCreate, user: dict[str, str] = Depends(current_user)) -> dict[str, Any]:
     with connection() as db:
         owned_form(db, form_id, user["id"])
-        db.execute("UPDATE forms SET title=?, description=?, questions=? WHERE id=? AND owner_id=?",
+        db.execute("UPDATE forms SET title=?, description=?, questions=?, theme=? WHERE id=? AND owner_id=?",
                    (payload.title, payload.description,
-                    json.dumps([q.model_dump() for q in payload.questions]), form_id, user["id"]))
+                    json.dumps([q.model_dump() for q in payload.questions]), payload.theme, form_id, user["id"]))
         row = owned_form(db, form_id, user["id"])
     return form_data(row)
 
