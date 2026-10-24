@@ -16,7 +16,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
+from fastapi import FastAPI
 
+app = FastAPI()
+
+# Add this root endpoint
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "FormCraft API is up and running!"}
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field

@@ -54,6 +54,20 @@ npm run dev
 
 Open the Vite URL shown in the terminal (normally `http://localhost:5173`). The frontend tries API ports `8000` and `8017` by default. Set `VITE_API_URL` in a frontend `.env` file to use another API URL. Set `CORS_ORIGINS` in the backend environment to a comma-separated list of allowed origins.
 
+## Deploy
+
+### Render API
+
+Create a Render Blueprint from this repository; Render reads the root `render.yaml`. After the API is deployed, set `CORS_ORIGINS` in the Render service environment to the exact Vercel site origin (for example, `https://your-project.vercel.app`, without a path), then redeploy the API. Check that `https://your-api.onrender.com/api/health` returns `{"status":"ok"}`.
+
+The Blueprint uses a free web service for a demo deployment. The backend currently stores data in SQLite, and Render's free service filesystem is ephemeral, so forms and accounts can be lost after a restart or deploy. Use a persistent disk on a paid Render service or migrate the app to a managed database before relying on stored data.
+
+### Vercel frontend
+
+Import the repository into Vercel and set **Root Directory** to `frontend`. The `frontend/vercel.json` config runs a clean `npm ci` install, builds with Vite, and serves the `dist` directory. Add the environment variable `VITE_API_URL` with the API URL ending in `/api` (for example, `https://your-api.onrender.com/api`) and redeploy.
+
+The local Ollama server on your desktop is not accessible to a deployed Render backend. The deployed AI form generation feature needs a model service reachable from Render; the local Ollama setup is for development.
+
 ## Features
 
 - Form dashboard with response counts and search
