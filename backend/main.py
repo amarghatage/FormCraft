@@ -70,15 +70,22 @@ def initialize() -> None:
 
 
 app = FastAPI(title="FormBuilder API", version="1.1.0")
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
+#     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origins=["*"], # Or include your specific Vercel URL here
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|\S+\.vercel\.app)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class RegisterPayload(BaseModel):
     name: str = Field(min_length=1, max_length=100)
