@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, BarChart3, Check, ChevronDown, CircleHelp, Clipboar
 
 const API_BASES = import.meta.env.VITE_API_URL
   ? [import.meta.env.VITE_API_URL]
-  : ['http://127.0.0.1:8000/api', 'http://127.0.0.1:8017/api','https://formcraft-uor8.onrender.com']
+  : ['http://127.0.0.1:8000/api', 'http://127.0.0.1:8017/api']
 const blankQuestion = (type = 'short_text') => ({ id: crypto.randomUUID(), title: type === 'image' ? 'Image' : type === 'video' ? 'Video' : 'Untitled question', type, required: false, options: ['Option 1', 'Option 2'], media_url: '' })
 const FORM_THEMES = [
   { id: 'violet', name: 'Violet', accent: '#6254d9', tint: '#efedff', banner: 'linear-gradient(115deg,#e9e7ff,#f6f2ff 58%,#eaf3ff)' },
@@ -15,19 +15,49 @@ const FORM_THEMES = [
 const SHARED_FORM_ID = new URLSearchParams(window.location.search).get('form')
 const readSession = () => { try { return JSON.parse(localStorage.getItem('formbuilder_session') || 'null') } catch { return null } }
 
+// async function api(path, options = {}) {
+//   let response
+//   for (const apiBase of API_BASES) {
+//     try {
+//       const session = readSession()
+//       response = await fetch(`${apiBase}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}), ...options.headers } })
+//       break
+//     } catch (error) {
+//       // Try the alternate default port when the first backend address is offline.
+//     }
+//   }
+//   if (!response) throw new Error(`Cannot reach the API at ${API_BASES.join(' or ')}. Start the backend on port 8000 or 8017, or set VITE_API_URL in frontend/.env.`)
+//   if (!response.ok) { let message = 'Something went wrong.'; try { message = (await response.json()).detail || message } catch {} throw new Error(message) }
+//   if (response.status === 204) return null
+//   return response.json()
+// }
 async function api(path, options = {}) {
   let response
-  for (const apiBase of API_BASES) {
-    try {
-      const session = readSession()
-      response = await fetch(`${apiBase}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}), ...options.headers } })
-      break
-    } catch (error) {
-      // Try the alternate default port when the first backend address is offline.
-    }
+  const base = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+  // Ensure base doesn't have a trailing slash and path starts with a slash
+  const cleanBase = base.replace(/\/+$/, '')
+  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  const targetUrl = `${cleanBase}${cleanPath}`
+
+  try {
+    const session = readSession()
+    response = await fetch(targetUrl, { 
+      ...options, 
+      headers: { 
+        'Content-Type': 'application/json', 
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}), 
+        ...options.headers 
+      } 
+    })
+  } catch (error) {
+    throw new Error(`Cannot reach the API at ${targetUrl}.`)
   }
-  if (!response) throw new Error(`Cannot reach the API at ${API_BASES.join(' or ')}. Start the backend on port 8000 or 8017, or set VITE_API_URL in frontend/.env.`)
-  if (!response.ok) { let message = 'Something went wrong.'; try { message = (await response.json()).detail || message } catch {} throw new Error(message) }
+
+  if (!response.ok) { 
+    let message = 'Something went wrong.'
+    try { message = (await response.json()).detail || message } catch {} 
+    throw new Error(message) 
+  }
   if (response.status === 204) return null
   return response.json()
 }
