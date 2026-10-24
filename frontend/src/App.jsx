@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, BarChart3, Check, ChevronDown, CircleHelp, Clipboar
 
 const API_BASES = import.meta.env.VITE_API_URL
   ? [import.meta.env.VITE_API_URL]
-  : ['http://127.0.0.1:8000/api', 'http://127.0.0.1:8017/api']
+  : ['http://127.0.0.1:8000/api', 'http://127.0.0.1:8017/api','https://formcraft-uor8.onrender.com']
 const blankQuestion = (type = 'short_text') => ({ id: crypto.randomUUID(), title: type === 'image' ? 'Image' : type === 'video' ? 'Video' : 'Untitled question', type, required: false, options: ['Option 1', 'Option 2'], media_url: '' })
 const FORM_THEMES = [
   { id: 'violet', name: 'Violet', accent: '#6254d9', tint: '#efedff', banner: 'linear-gradient(115deg,#e9e7ff,#f6f2ff 58%,#eaf3ff)' },
