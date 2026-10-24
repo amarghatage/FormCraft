@@ -90,6 +90,7 @@ class Question(BaseModel):
     type: str = "short_text"
     required: bool = False
     options: list[str] = Field(default_factory=list)
+    media_url: str = Field(default="", max_length=2000)
 
 
 class FormCreate(BaseModel):
