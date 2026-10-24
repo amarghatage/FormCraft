@@ -80,7 +80,7 @@ app = FastAPI(title="FormBuilder API", version="1.1.0")
 # )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Or include your specific Vercel URL here
+    allow_origins=["https://formcraft-three.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173"],
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|\S+\.vercel\.app)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
